@@ -1,0 +1,562 @@
+{
+  "info": {
+    "name": "ThesisPath",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Запускать по порядку. Перед шагом 8 прикрепите файл в body."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token_student",
+      "value": ""
+    },
+    {
+      "key": "token_teacher",
+      "value": ""
+    },
+    {
+      "key": "topic_id",
+      "value": ""
+    },
+    {
+      "key": "thesis_id",
+      "value": ""
+    },
+    {
+      "key": "milestone_id",
+      "value": ""
+    },
+    {
+      "key": "version_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login student",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "username",
+              "value": "student@demo"
+            },
+            {
+              "key": "password",
+              "value": "demo1234"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('token_student', pm.response.json().access_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Login teacher",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/auth/login",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "username",
+              "value": "teacher@demo"
+            },
+            {
+              "key": "password",
+              "value": "demo1234"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('token_teacher', pm.response.json().access_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. List topics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/topics?status=free"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));",
+              "const t=pm.response.json(); if(t.length) pm.collectionVariables.set('topic_id', t[0].id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Select topic (student)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/topics/{{topic_id}}/select"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('thesis_id', pm.response.json().thesis_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Select again -> 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/topics/{{topic_id}}/select"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('409',()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Approve (teacher)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_teacher}}"
+          }
+        ],
+        "url": "{{base_url}}/theses/{{thesis_id}}/approve"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('milestone_id', pm.response.json().milestones[0].id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. My thesis (student)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/theses/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Upload version (attach file)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/milestones/{{milestone_id}}/versions",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('version_id', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Comment + accept (teacher)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_teacher}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/versions/{{version_id}}/comments",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"Принято\", \"verdict\": \"accepted\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201',()=>pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Readiness",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/theses/{{thesis_id}}/readiness"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Student creates topic -> 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/topics",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\": \"Нельзя\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403',()=>pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. No token -> 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/topics"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401',()=>pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Event feed",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/theses/{{thesis_id}}/events"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Stats (teacher)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_teacher}}"
+          }
+        ],
+        "url": "{{base_url}}/stats"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Stats (student) -> 403",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/stats"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403',()=>pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Printable report",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/theses/{{thesis_id}}/report"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17. Topic search",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/topics?q=ML"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18. Notifications (teacher)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_teacher}}"
+          }
+        ],
+        "url": "{{base_url}}/notifications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19. Deadlines (student)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/deadlines"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20. Supervisors list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_student}}"
+          }
+        ],
+        "url": "{{base_url}}/auth/supervisors"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

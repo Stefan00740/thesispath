@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThesisPath</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--text:#1d2433;--muted:#6b7385;--line:#e3e6ef;--accent:#3b5bdb;
+--green:#2f9e44;--yellow:#f08c00;--red:#e03131;--gray:#adb5bd}
+@media (prefers-color-scheme:dark){:root{--bg:#12151c;--card:#1b2030;--text:#e8ebf4;--muted:#9aa3b8;--line:#2b3247;--accent:#748ffc}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 22px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+h1{font-size:18px;margin:0}h2,h3{margin:0 0 8px}main{max-width:920px;margin:20px auto;padding:0 14px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.muted{color:var(--muted);font-size:13px}a{color:var(--accent)}
+button{font:inherit;border:0;border-radius:9px;padding:8px 14px;background:var(--accent);color:#fff;cursor:pointer}
+button:hover{filter:brightness(1.08)}button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+button.red{background:var(--red)}button.green{background:var(--green)}
+input,textarea,select{font:inherit;width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>input,.row>select{flex:1;min-width:140px;width:auto}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.dot.green{background:var(--green)}.dot.yellow{background:var(--yellow)}.dot.red{background:var(--red)}.dot.gray{background:var(--gray)}
+.road{display:flex;gap:8px;flex-wrap:wrap}.step{border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;min-width:128px;flex:1}
+.step.sel{outline:2px solid var(--accent)}.step small{display:block;color:var(--muted)}.step.done{background:rgba(47,158,68,.09)}
+.hero{display:flex;gap:18px;align-items:center;flex-wrap:wrap}.hero .grow{flex:1;min-width:220px}
+table{width:100%;border-collapse:collapse}td,th{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}
+tr.click{cursor:pointer}tr.click:hover{background:var(--bg)}
+.ver{border-left:3px solid var(--accent);padding-left:10px;margin:10px 0}
+.tag{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--line);white-space:nowrap}
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--line);margin:2px 4px 2px 0;font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.chip{padding:4px 12px;border-radius:20px;border:1px solid var(--line);cursor:pointer;font-size:13px}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.tile b{font-size:24px}
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.feat>div{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg)}.feat b{display:block;margin:4px 0}
+.tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.tab{padding:8px 16px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--accent);border-color:var(--accent);font-weight:600}
+.form{display:grid;gap:10px;max-width:420px}.lead{font-size:16px;color:var(--text)}
+.notif{position:fixed;top:58px;right:14px;width:min(380px,92vw);max-height:70vh;overflow:auto;z-index:15;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.nitem{padding:8px 6px;border-bottom:1px solid var(--line);cursor:pointer}.nitem.unread{background:rgba(59,91,219,.09);border-left:3px solid var(--accent);padding-left:8px}
+#bc{color:var(--red)}header .row{gap:6px}
+.fc{padding:8px 12px;border-radius:10px;font-size:14px;margin-top:8px}.fc.ok{background:rgba(47,158,68,.12)}.fc.bad{background:rgba(224,49,49,.12)}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:grid;gap:8px;z-index:20}
+.t{padding:10px 16px;border-radius:10px;background:#222;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25)}.t.err{background:var(--red)}.t.ok{background:var(--green)}
+</style>
+</head>
+<body>
+<header><h1>🧭 ThesisPath</h1><div id="who" class="row"></div></header>
+<main id="app"></main><div id="toast"></div><div id="notif" class="card notif" style="display:none"></div>
+<script>
+const ST={not_started:"не начат",in_progress:"в работе",review:"на проверке",revision:"доработка",accepted:"принят"};
+let token=localStorage.getItem("tp_token"),me=JSON.parse(localStorage.getItem("tp_user")||"null"),selMs=null,dirFilter="";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(msg,kind=""){const d=document.createElement("div");d.className="t "+kind;d.textContent=msg;$("#toast").append(d);setTimeout(()=>d.remove(),3200)}
+async function api(path,opt={}){
+  const h=opt.headers||{};if(token)h.Authorization="Bearer "+token;
+  const r=await fetch(path,{...opt,headers:h});
+  const d=await r.json().catch(()=>({}));
+  if(r.status===401&&token){logout();throw new Error("auth")}
+  if(!r.ok){toast(typeof d.detail==="string"?d.detail:"Проверьте введённые данные (код "+r.status+")","err");throw new Error("api")}
+  return d;
+}
+const json=(m,b)=>({method:m,headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+async function login(email,pass){
+  const r=await fetch("/auth/login",{method:"POST",body:new URLSearchParams({username:email,password:pass})});
+  const d=await r.json();
+  if(!r.ok)return toast(d.detail||"Ошибка входа","err");
+  token=d.access_token;me=d.user;localStorage.setItem("tp_token",token);localStorage.setItem("tp_user",JSON.stringify(me));selMs=null;render();
+}
+function logout(){localStorage.clear();token=null;me=null;render()}
+let authTab="login";
+function setTab(t){authTab=t;loginView()}
+async function register(){
+  const body={email:$("#re").value.trim(),password:$("#rp").value,full_name:$("#rn").value.trim(),role:$("#rr").value};
+  if(!body.full_name||!body.email||body.password.length<6)return toast("Заполните все поля, пароль — не короче 6 символов","err");
+  const r=await fetch("/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(r.status===409)return toast(d.detail,"err");
+  if(!r.ok)return toast("Проверьте данные: email вида name@mail.com, имя от 2 символов","err");
+  toast("Аккаунт создан","ok");login(body.email,body.password);
+}
+function loginView(){
+  const feats=[["🎓","Студент","Выбирает тему, видит карту этапов с дедлайнами, загружает версии работы и получает замечания руководителя."],
+   ["👨‍🏫","Руководитель","Публикует темы, подтверждает студентов, проверяет работы и сразу видит, кто отстаёт от графика."],
+   ["📊","Индекс готовности","Система сама считает, насколько диплом готов к защите, и подсказывает следующий шаг."]];
+  const enter="onkeydown=\"if(event.key==='Enter')";
+  $("#app").innerHTML=`<div class="card"><h2>Добро пожаловать в ThesisPath</h2>
+  <p class="lead">ThesisPath помогает пройти весь путь дипломной работы: от выбора темы до допуска к защите.
+  Темы, этапы, дедлайны, версии файлов и комментарии руководителя собраны в одном месте, а готовность к защите считается автоматически.</p>
+  <div class="feat">${feats.map(([i,t,d])=>`<div><span style="font-size:22px">${i}</span><b>${t}</b><span class="muted">${d}</span></div>`).join("")}</div></div>
+  <div class="card"><div class="tabs"><span class="tab ${authTab==="login"?"on":""}" onclick="setTab('login')">Вход</span>
+  <span class="tab ${authTab==="register"?"on":""}" onclick="setTab('register')">Регистрация</span></div>
+  ${authTab==="login"?`<div class="form"><input id="e" placeholder="Email" autocomplete="username" ${enter}login($('#e').value,$('#p').value)\">
+   <input id="p" type="password" placeholder="Пароль" autocomplete="current-password" ${enter}login($('#e').value,$('#p').value)\">
+   <button onclick="login($('#e').value,$('#p').value)">Войти</button>
+   <span class="muted">Нет аккаунта? <a href="#" onclick="setTab('register');return false">Зарегистрируйтесь</a></span></div>`
+  :`<div class="form"><input id="rn" placeholder="Фамилия и имя" autocomplete="name">
+   <input id="re" placeholder="Email" autocomplete="username">
+   <input id="rp" type="password" placeholder="Пароль (от 6 символов)" autocomplete="new-password" ${enter}register()\">
+   <select id="rr"><option value="student">Я студент</option><option value="supervisor">Я научный руководитель</option></select>
+   <button onclick="register()">Создать аккаунт</button>
+   <span class="muted">Уже есть аккаунт? <a href="#" onclick="setTab('login');return false">Войти</a></span></div>`}
+  <p class="muted" style="margin-top:18px">Демо-доступ одним кликом:</p><div class="row">
+  <button class="ghost" onclick="login('student@demo','demo1234')">🎓 Студент</button>
+  <button class="ghost" onclick="login('teacher@demo','demo1234')">👨‍🏫 Руководитель</button>
+  <button class="ghost" onclick="login('student2@demo','demo1234')">🎓 Студент с отставанием</button>
+  <button class="ghost" onclick="login('admin@demo','demo1234')">🛠 Координатор</button></div></div>`;
+}
+const tiles=s=>`<div class="tiles">${[["👥","Студентов",s.theses_total],["📊","Средняя готовность",s.avg_readiness+"%"],["🔴","Просрочено этапов",s.overdue_milestones],["📥","На проверке",s.waiting_review],["🎓","Готовы к защите",s.ready_for_defense]].map(([i,l,v])=>`<div class="tile"><div class="muted">${i} ${l}</div><b>${v}</b></div>`).join("")}</div>`;
+const ROLE={student:"студент",supervisor:"руководитель",admin:"координатор"};
+const TEMPLATE=["Тема и план","Введение","Глава 1","Глава 2","Глава 3","Оформление по ГОСТ","Предзащита","Защита"];
+const deadlinesCard=(items,withStudent)=>items.length?`<div class="card"><h3>⏰ Ближайшие дедлайны</h3>${items.map(i=>`<div class="row" style="padding:4px 0;${withStudent?"cursor:pointer":""}" ${withStudent?`onclick="selMs=null;openThesis(${i.thesis_id})"`:""}>${dot(i.light)}<b>${esc(i.title)}</b>${withStudent?`<span class="muted">${esc(i.student)}</span>`:""}<span class="muted" style="margin-left:auto">${i.days_left<0?`просрочено на ${-i.days_left} дн.`:i.days_left===0?"сегодня":`через ${i.days_left} дн.`} · ${i.deadline}</span></div>`).join("")}</div>`:"";
+function pendingBlock(t,student){
+  if(student)return `<p>⏳ <b>Заявка отправлена руководителю.</b> Как только он подтвердит тему, здесь появится ваша карта диплома. Вот что вас ждёт:</p>
+  <div class="road">${TEMPLATE.map((x,i)=>`<div class="step"><b>${i+1}. ${esc(x)}</b><small>этап ${i+1} из 8</small></div>`).join("")}</div>
+  <p><button class="ghost" onclick="withdraw()">↩ Отозвать заявку и выбрать другую тему</button></p>`;
+  return `<p>⏳ Студент ждёт вашего решения.</p><div class="row"><button class="green" onclick="approve(${t.id})">✅ Подтвердить</button>
+  <input id="rj" placeholder="Причина отказа"><button class="red" onclick="rejectThesis(${t.id})">Отклонить</button></div>`;
+}
+const proposeCard=sups=>sups.length?`<div class="card"><h3>💡 Не нашли подходящую? Предложите свою тему</h3>
+  <p class="muted">Руководитель рассмотрит заявку: подтвердит или напишет, что изменить.</p>
+  <div class="form" style="max-width:none"><input id="pt" placeholder="Название темы">
+  <div class="row"><input id="pd" placeholder="Направление"><select id="ps">${sups.map(s=>`<option value="${s.id}">${esc(s.full_name)}</option>`).join("")}</select></div>
+  <textarea id="pdesc" rows="2" placeholder="Коротко: о чём работа (необязательно)"></textarea>
+  <div><button onclick="propose()">Отправить руководителю</button></div></div></div>`:"";
+async function propose(){
+  const title=$("#pt").value.trim();if(title.length<3)return toast("Название — минимум 3 символа","err");
+  await api("/topics/propose",json("POST",{title,direction:$("#pd").value.trim(),description:$("#pdesc").value.trim(),supervisor_id:+$("#ps").value}));
+  toast("Тема отправлена руководителю","ok");render();
+}
+async function withdraw(){if(!confirm("Отозвать заявку?"))return;await api("/theses/me/request",{method:"DELETE"});toast("Заявка отозвана","ok");render()}
+async function rejectThesis(id){
+  const reason=$("#rj").value.trim();if(reason.length<3)return toast("Напишите причину отказа (от 3 символов)","err");
+  await api(`/theses/${id}/reject`,json("PATCH",{reason}));toast("Заявка отклонена, студент получил уведомление","ok");render();
+}
+async function editTopic(id){
+  const t=TOPICS.find(x=>x.id===id);const title=prompt("Новое название темы",t.title);
+  if(!title||title.trim().length<3)return;await api(`/topics/${id}`,json("PATCH",{title:title.trim()}));toast("Тема обновлена","ok");topicsView();
+}
+async function delTopic(id){if(!confirm("Удалить тему?"))return;await api(`/topics/${id}`,{method:"DELETE"});toast("Тема удалена","ok");topicsView()}
+async function saveNote(mid){await api(`/milestones/${mid}/note`,json("PATCH",{note:$("#note").value}));toast("Заметка сохранена","ok")}
+async function refreshBell(){try{const d=await api("/notifications");window.NOTIFS=d;const c=$("#bc");if(c)c.textContent=d.unread?" "+d.unread:""}catch(e){}}
+async function toggleBell(){
+  const box=$("#notif");
+  if(box.style.display==="block"){box.style.display="none";return}
+  await refreshBell();const d=window.NOTIFS;
+  box.innerHTML=`<h3>Уведомления</h3>${d.items.length?d.items.map(n=>`<div class="nitem ${n.read?"":"unread"}" ${n.thesis_id?`onclick="goThesis(${n.thesis_id})"`:""}>${esc(n.text)}<div class="muted">${n.at}</div></div>`).join(""):'<p class="muted">Пока ничего нового</p>'}`;
+  box.style.display="block";
+  if(d.unread){await api("/notifications/read-all",{method:"POST"});$("#bc").textContent=""}
+}
+function goThesis(id){$("#notif").style.display="none";selMs=null;me.role==="student"?openThesis("me"):openThesis(id)}
+function profileView(){
+  $("#notif").style.display="none";
+  $("#app").innerHTML=`<button class="ghost" onclick="render()" style="justify-self:start">← Назад</button>
+  <div class="card"><h2>Профиль</h2><p class="muted">${esc(me.email)} · ${ROLE[me.role]}</p>
+  <div class="form"><input id="pn" value="${esc(me.full_name)}" placeholder="Фамилия и имя"><button onclick="saveProfile()">Сохранить имя</button></div></div>
+  <div class="card"><h3>Смена пароля</h3><div class="form"><input id="op" type="password" placeholder="Текущий пароль" autocomplete="current-password">
+  <input id="np" type="password" placeholder="Новый пароль (от 6 символов)" autocomplete="new-password"><button onclick="changePw()">Сменить пароль</button></div></div>`;
+}
+async function saveProfile(){
+  const full_name=$("#pn").value.trim();if(full_name.length<2)return toast("Слишком короткое имя","err");
+  me=await api("/auth/me",json("PATCH",{full_name}));localStorage.setItem("tp_user",JSON.stringify(me));toast("Сохранено","ok");render();
+}
+async function changePw(){
+  await api("/auth/change-password",json("POST",{old_password:$("#op").value,new_password:$("#np").value}));
+  toast("Пароль изменён","ok");$("#op").value="";$("#np").value="";
+}
+const dot=l=>`<span class="dot ${l}"></span>`;
+const ring=p=>`<svg width="104" height="104" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--line)" stroke-width="3.4"/><circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--accent)" stroke-width="3.4" stroke-dasharray="${p} 100" stroke-linecap="round" transform="rotate(-90 18 18)"/><text x="18" y="20.6" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor">${p}%</text></svg>`;
+function roadmap(t){
+  return `<div class="road">${t.milestones.map(m=>`<div class="step ${m.status==="accepted"?"done":""} ${selMs==m.id?"sel":""}" onclick="selMs=${m.id};openThesis(${t.id})">
+  ${dot(m.light)} <b>${esc(m.title)}</b><small>${ST[m.status]} · до ${m.deadline}</small></div>`).join("")}</div>`;
+}
+function forecastHtml(f){
+  if(!f)return"";
+  return f.on_track
+    ?`<div class="fc ok">📈 При текущем темпе вы закончите примерно за ${f.delta} дн. до последнего дедлайна.</div>`
+    :`<div class="fc bad">⚠️ При текущем темпе не хватает ${-f.delta} дн. до последнего дедлайна — стоит ускориться.</div>`;
+}
+async function msPanel(t){
+  if(!selMs)return"";
+  const m=t.milestones.find(x=>x.id==selMs);if(!m)return"";
+  const vs=await api(`/milestones/${m.id}/versions`);
+  const student=me.role==="student",canReview=me.role!=="student"&&m.status==="review";
+  const noteHtml=student&&m.status!=="accepted"?`<div style="margin:8px 0"><textarea id="note" rows="2" placeholder="Что сделано по этому этапу? Заметку увидит руководитель">${esc(m.note)}</textarea><button class="ghost" style="margin-top:6px" onclick="saveNote(${m.id})">💾 Сохранить заметку</button></div>`:(m.note?`<div class="fc ok">📝 Заметка студента: ${esc(m.note)}</div>`:"");
+  return `<div class="card"><h3>${esc(m.title)} <span class="tag">${ST[m.status]}</span> <span class="muted">дедлайн ${m.deadline}</span></h3>${noteHtml}
+  ${vs.map(v=>`<div class="ver"><b>v${v.version_no}</b> · ${esc(v.filename)} · <a href="#" onclick="dl(${v.id},'${esc(v.filename)}');return false">скачать</a>
+   ${v.comments.map(c=>`<div class="muted">💬 ${esc(c.author)}: ${esc(c.text)} ${c.verdict!=="comment"?`<span class="tag">${c.verdict==="accepted"?"принято":"исправить"}</span>`:""}</div>`).join("")}
+   ${!student||v.comments.length||true?`<div class="row" style="margin-top:6px"><input id="c${v.id}" placeholder="Комментарий">
+    <button class="ghost" onclick="comment(${v.id},'comment',${t.id})">Отправить</button>
+    ${canReview?`<button class="red" onclick="comment(${v.id},'needs_fix',${t.id})">Исправить</button><button class="green" onclick="comment(${v.id},'accepted',${t.id})">Принять</button>`:""}</div>`:""}
+  </div>`).join("")||'<p class="muted">Версий пока нет</p>'}
+  ${student&&m.status==="not_started"?`<p><button class="ghost" onclick="setStatus(${m.id},'in_progress',${t.id})">▶ Начать работу над этапом</button></p>`:""}
+  ${student&&m.status!=="accepted"?`<div class="row"><input type="file" id="f"><button onclick="upload(${m.id},${t.id})">⬆ Загрузить версию</button></div>`:""}</div>`;
+}
+async function dl(id,name){
+  const r=await fetch(`/versions/${id}/download`,{headers:{Authorization:"Bearer "+token}});
+  if(!r.ok)return toast("Файл недоступен","err");
+  const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();
+}
+async function upload(mid,tid){
+  const f=$("#f").files[0];if(!f)return toast("Выберите файл","err");
+  const fd=new FormData();fd.append("file",f);
+  await api(`/milestones/${mid}/versions`,{method:"POST",body:fd});toast("Версия загружена, этап на проверке","ok");openThesis(tid);
+}
+async function setStatus(mid,status,tid){await api(`/milestones/${mid}/status`,json("PATCH",{status}));openThesis(tid)}
+async function comment(vid,verdict,tid){
+  const text=$("#c"+vid).value.trim()||(verdict==="accepted"?"Принято":verdict==="needs_fix"?"Нужны исправления":"");
+  if(!text)return toast("Введите текст комментария","err");
+  await api(`/versions/${vid}/comments`,json("POST",{text,verdict}));toast("Готово","ok");openThesis(tid);
+}
+async function addMilestone(tid){
+  const title=$("#mt").value.trim(),deadline=$("#md").value;
+  if(!title||!deadline)return toast("Укажите название и дедлайн","err");
+  await api(`/theses/${tid}/milestones`,json("POST",{title,deadline}));toast("Этап добавлен","ok");openThesis(tid);
+}
+async function openThesis(id){
+  const t=await api(id==="me"?"/theses/me":`/theses/${id}`);
+  const nxt=t.next_step,student=me.role==="student";
+  const ev=await api(`/theses/${t.id}/events`);
+  const dls=student&&t.status==="active"?await api("/deadlines?limit=4"):[];
+  const evHtml=ev.length?`<div class="card"><h3>Лента событий</h3>${ev.map(e=>`<div class="muted" style="padding:3px 0">${e.at} · ${esc(e.text)}</div>`).join("")}</div>`:"";
+  $("#app").innerHTML=`${!student?'<button class="ghost" onclick="render()" style="justify-self:start">← К списку студентов</button>':""}
+  <div class="card"><div class="row" style="justify-content:space-between"><div class="muted">${esc(t.student)} · руководитель: ${esc(t.supervisor)}</div>${t.status==="active"?`<button class="ghost" onclick="report(${t.id})">🖨 Отчёт для печати</button>`:""}</div><h2>${esc(t.topic)}</h2>
+  ${t.status==="pending"?`${pendingBlock(t,student)}`:`
+  <div class="hero">${ring(t.readiness)}<div class="grow"><b>Готовность к защите ${t.ready_for_defense?"✅ готов":""}</b>
+  <div class="muted">этапы ${t.readiness_breakdown.milestones}/40 · версия ${t.readiness_breakdown.latest_version_approved}/20 · чек-лист ${t.readiness_breakdown.checklist}/20 · дисциплина ${t.readiness_breakdown.discipline}/20</div>
+  ${forecastHtml(t.forecast)}</div><div title="светофор">${dot(t.light)}</div></div>
+  <div style="margin-top:8px">${t.badges.map(b=>`<span class="badge">${b.emoji} ${esc(b.title)}</span>`).join("")}</div>`}</div>
+  ${nxt?`<div class="card"><div class="muted">Следующий шаг</div><h3>${dot(nxt.light)} ${esc(nxt.title)}</h3><div class="muted">${ST[nxt.status]} · дедлайн ${nxt.deadline}</div>
+  <p><button onclick="selMs=${nxt.id};openThesis(${t.id})">Открыть этап</button></p></div>`:""}
+  ${deadlinesCard(dls,false)}
+  ${t.milestones.length?`<div class="card"><h3>Карта диплома</h3>${roadmap(t)}
+  ${!student&&t.status==="active"?`<div class="row" style="margin-top:12px"><input id="mt" placeholder="Новый этап / задание"><input id="md" type="date"><button class="ghost" onclick="addMilestone(${t.id})">+ Добавить</button></div>`:""}</div>`:""}
+  <div id="panel"></div>
+  ${t.checklist.length?`<div class="card"><h3>Чек-лист допуска</h3>${t.checklist.map(c=>`<label style="display:block"><input type="checkbox" style="width:auto" ${c.done?"checked":""} ${student?"disabled":""} onchange="tick(${c.id},this.checked,${t.id})"> ${esc(c.item)}</label>`).join("")}
+  ${!student&&t.readiness>=90&&!t.ready_for_defense?`<p><button class="green" onclick="ready(${t.id})">Подтвердить готовность к защите</button></p>`:""}</div>`:""}${evHtml}`;
+  $("#panel").innerHTML=await msPanel(t);
+  refreshBell();
+}
+async function report(id){const r=await fetch(`/theses/${id}/report`,{headers:{Authorization:"Bearer "+token}});if(!r.ok)return toast("Не удалось открыть отчёт","err");window.open(URL.createObjectURL(await r.blob()),"_blank")}
+const filterRows=v=>document.querySelectorAll("table.tt tr").forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(v.toLowerCase())?"":"none");
+const approve=async id=>{await api(`/theses/${id}/approve`,{method:"PATCH"});toast("Закрепление подтверждено, карта создана","ok");openThesis(id)};
+const tick=async(id,done,tid)=>{await api(`/checklist/${id}`,json("PATCH",{done}));openThesis(tid)};
+const ready=async id=>{await api(`/theses/${id}/defense-ready`,{method:"PATCH"});toast("Студент допущен к защите 🎓","ok");openThesis(id)};
+async function topicsView(){
+  const ts=await api("/topics");window.TOPICS=ts;
+  const sups=me.role==="student"?await api("/auth/supervisors"):[];
+  const dirs=[...new Set(ts.map(t=>t.direction).filter(Boolean))];
+  const list=ts.filter(t=>!dirFilter||t.direction===dirFilter);
+  $("#app").innerHTML=`${me.role==="supervisor"?`<div class="card"><h3>Новая тема</h3><div class="row"><input id="nt" placeholder="Название темы"><input id="nd" placeholder="Направление"></div>
+  <p><button onclick="newTopic()">Опубликовать тему</button></p></div>`:""}
+  <div class="card"><h2>${me.role==="student"?"Выберите тему":"Биржа тем"}</h2>
+  <div class="chips"><span class="chip ${!dirFilter?"on":""}" onclick="dirFilter='';topicsView()">Все</span>${dirs.map(d=>`<span class="chip ${dirFilter===d?"on":""}" onclick="dirFilter='${esc(d)}';topicsView()">${esc(d)}</span>`).join("")}</div>
+  <input placeholder="🔍 Поиск по названию темы" oninput="filterRows(this.value)" style="margin-bottom:8px">
+  <table class="tt">${list.map(t=>`<tr><td><b>${esc(t.title)}</b><div class="muted">${esc(t.direction)} · ${esc(t.supervisor)}</div></td>
+  <td style="text-align:right;white-space:nowrap">${t.status==="free"?(me.role==="student"?`<button onclick="pick(${t.id})">Выбрать</button>`:`<span class="tag">свободна</span> ${me.role==="admin"||t.supervisor_id===me.id?`<button class="ghost" onclick="editTopic(${t.id})">✏️</button> <button class="ghost" onclick="delTopic(${t.id})">🗑</button>`:""}`):'<span class="tag">занята</span>'}</td></tr>`).join("")}</table></div>
+  ${me.role==="student"?proposeCard(sups):""}`;
+}
+const pick=async id=>{await api(`/topics/${id}/select`,{method:"POST"});toast("Заявка отправлена руководителю","ok");render()};
+async function newTopic(){
+  const title=$("#nt").value.trim();if(!title)return toast("Введите название","err");
+  await api("/topics",json("POST",{title,direction:$("#nd").value.trim()}));toast("Тема опубликована","ok");topicsView();
+}
+const order={red:0,yellow:1,green:2,gray:3};
+async function listView(){
+  const ts=(await api("/theses")).sort((a,b)=>(b.status==="pending")-(a.status==="pending")||order[a.light]-order[b.light]||b.waiting_review-a.waiting_review);
+  const wait=ts.reduce((n,t)=>n+t.waiting_review,0),pend=ts.filter(t=>t.status==="pending").length;
+  const st=await api("/stats"),dls=await api("/deadlines");
+  $("#app").innerHTML=`${tiles(st)}${deadlinesCard(dls,true)}<div class="card"><h2>Студенты</h2><p class="muted">${pend?`🆕 Новых заявок: ${pend}. `:""}${wait?`📥 Ждут вашей проверки: ${wait}. `:""}Сначала те, кому нужно внимание.</p>
+  ${ts.length?`<table><tr><th></th><th>Студент</th><th>Тема</th><th>Готовность</th><th>На проверке</th></tr>
+  ${ts.map(t=>`<tr class="click" onclick="selMs=null;openThesis(${t.id})"><td>${dot(t.light)}</td><td>${esc(t.student)}</td><td>${esc(t.topic)}</td>
+  <td>${t.status==="pending"?'<span class="tag">ожидает подтверждения</span>':t.readiness+"%"}</td><td>${t.waiting_review||""}</td></tr>`).join("")}</table>`:'<p class="muted">Пока нет студентов</p>'}</div>
+  <div id="topics"></div>`;
+  if(me.role==="supervisor"||me.role==="admin"){const keep=$("#app").innerHTML;await topicsView();const t=$("#app").innerHTML;$("#app").innerHTML=keep.replace('<div id="topics"></div>',`<div id="topics">${t}</div>`)}
+}
+async function render(){
+  $("#who").innerHTML=me?`<span class="muted">${esc(me.full_name)} · ${ROLE[me.role]}</span><button class="ghost" onclick="toggleBell()" title="Уведомления">🔔<b id="bc"></b></button><button class="ghost" onclick="profileView()" title="Профиль">👤</button><a href="/docs" target="_blank">API</a><button class="ghost" onclick="logout()">Выйти</button>`:"";
+  $("#notif").style.display="none";
+  if(!me)return loginView();
+  refreshBell();
+  try{
+    if(me.role==="student"){
+      const r=await fetch("/theses/me",{headers:{Authorization:"Bearer "+token}});
+      if(r.status===401)return logout();
+      return r.ok?openThesis("me"):topicsView();
+    }
+    await listView();
+  }catch(e){}
+}
+render();
+</script>
+</body>
+</html>
